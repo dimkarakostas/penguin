@@ -1,0 +1,5 @@
+SERVER_HOST = 'localhost'
+SERVER_PORT = 18018
+
+PEER_HOST = 'localhost'
+PEER_PORT = 18018
