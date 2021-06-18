@@ -1,2 +1,3 @@
-# penguin
-A Python implementation of a marabu.dev node
+# Penguin
+
+A Python implementation of a [Marabu](https://marabu.dev/) node.
