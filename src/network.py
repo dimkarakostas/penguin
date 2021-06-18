@@ -2,6 +2,7 @@ import socket
 import json
 import threading
 import queue
+from library.Canonicalize import canonicalize
 
 class Peer:
     def __init__(self, connection, id):
@@ -24,13 +25,14 @@ class Peer:
                 data = self.connection.recv(4096)
                 self.buffer.put(data)
                 if data == b'':
+                    print('[*] Received closing signal', self.id)
                     break
         finally:
             self.close()
 
     def send(self, data):
         try:
-            self.connection.sendall(bytes(data, encoding="utf-8"))
+            self.connection.sendall(canonicalize(data))
         except Exception as e:
             print('[!] Error in peer.send', e)
             self.close()
@@ -50,19 +52,19 @@ class Server:
 
         print('[*] Server is listening on:', host, port)
 
-        self.peers = set()
+        self.peers = {}
 
         t = threading.Thread(target=self.listen)
         t.start()
 
     def listen(self):
         while True:
-            connection, addr = self.sock.accept()
-            self.peers.add(Peer(connection, addr))
+            connection, peer_id = self.sock.accept()
+            self.peers[peer_id] = Peer(connection, peer_id)
 
     def connect(self, peer_host, peer_port):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.connect((peer_host, peer_port))
-        p = Peer(sock, (peer_host, peer_port))
-        self.peers.add(p)
-        return p
+
+        peer_id = (peer_host, peer_port)
+        sock.connect(peer_id)
+        self.peers[peer_id] = Peer(sock, peer_id)
