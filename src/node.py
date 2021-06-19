@@ -12,11 +12,10 @@ class Node:
         self.server_host, self.server_port = host, port
         self.server = Server(host, port)
 
-        t = threading.Thread(target=self.read_buffer)
-        t.start()
-
-        t = threading.Thread(target=self.log_peers)
-        t.start()
+        t1 = threading.Thread(target=self.read_buffer)
+        t1.start()
+        t2 = threading.Thread(target=self.log_peers)
+        t2.start()
 
     def connect_to_peer(self, hostname, port):
         host = socket.gethostbyname(hostname)
@@ -30,9 +29,12 @@ class Node:
             self.send_hello(peer_id)
 
             peer = self.server.peers[peer_id]
-            for _ in range(5):
-                sleep(2)
+
             if not peer.hello_recv:
+                for _ in range(5):
+                    sleep(2)
+            if not peer.hello_recv:
+                print('[!] Did not receive hello back', peer_id)
                 self.remove_peer(peer)
             else:
                 self.get_peers(peer_id)
