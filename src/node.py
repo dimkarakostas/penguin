@@ -1,4 +1,5 @@
 import json
+import re
 import threading
 from time import sleep
 from .network import Server
@@ -13,12 +14,13 @@ class Node:
         t.start()
 
     def connect_to_peer(self, host, port):
-        print('[*] Connecting to peer', (host, port))
+        peer_id = (host, port)
+        print('[*] Connecting to peer', peer_id)
         self.server.connect(host, port)
-        self.send_hello((host, port))
+        self.send_hello(peer_id)
 
     def send_hello(self, peer_id):
-        print('[*] Sending hello to new peer', peer_id)
+        print('[*] Sending hello to', peer_id)
 
         hello_msg = {
             "type": "hello",
@@ -58,12 +60,10 @@ class Node:
 
     def parse_msg(self, msg, peer):
         if not peer.hello_recv:
-            assert 'type' in msg.keys(), '"type" not in hello message'
             assert msg['type'] == 'hello', '"type" not "hello"'
-            assert 'version' in msg.keys(), '"version" not in hello message'
-            assert msg['version'] == '0.2.0', 'Wrong hello version'
+            assert re.match('0\.2\.\d+', msg['version']), 'Wrong hello version'
 
             peer.hello_recv = True
             if not peer.hello_send:
-                self.send_hello(peer)
-            print('[*] Hello with peer completed', peer.id)
+                self.send_hello(peer.id)
+            print('[*] Received hello from', peer.id)

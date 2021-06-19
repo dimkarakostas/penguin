@@ -59,8 +59,8 @@ class Server:
 
     def listen(self):
         while True:
-            connection, peer_id = self.sock.accept()
-            self.peers[peer_id] = Peer(connection, peer_id)
+            connection, (client_host, client_port) = self.sock.accept()
+            self.peers[(client_host, client_port)] = Peer(connection, (client_host, client_port))
 
     def connect(self, peer_host, peer_port):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
