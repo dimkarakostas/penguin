@@ -39,9 +39,9 @@ class Node:
         print('[*] Sending hello to', peer_id)
 
         msg = {
-            "type": "hello",
-            "version": config.node.VERSION,
-            "agent": config.node.AGENT
+            'type': 'hello',
+            'version': config.node.VERSION,
+            'agent': config.node.AGENT
         }
 
         peer = self.server.peers[peer_id]
@@ -93,7 +93,7 @@ class Node:
 
     def parse_msg(self, msg, peer):
         if not peer.hello_recv:
-            assert msg['type'] == 'hello', '"type" not "hello"'
+            assert msg['type'] == 'hello', 'type not hello'
             assert re.match(config.node.VERSION_REGEX, msg['version']), 'Wrong hello version'
 
             peer.hello_recv = True
