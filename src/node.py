@@ -13,6 +13,9 @@ class Node:
         t = threading.Thread(target=self.read_buffer)
         t.start()
 
+        t = threading.Thread(target=self.log_peers)
+        t.start()
+
     def connect_to_peer(self, host, port):
         peer_id = (host, port)
         print('[*] Connecting to peer', peer_id)
@@ -31,6 +34,15 @@ class Node:
         peer = self.server.peers[peer_id]
         peer.send(hello_msg)
         peer.hello_send = True
+
+    def log_peers(self):
+        while True:
+            open('peers.json', 'w').write(
+                json.dumps(
+                    {'peers': list(self.server.peers.keys())}
+                )
+            )
+            sleep(5)
 
     def remove_peer(self, peer):
         p = self.server.peers.pop(peer.id)
