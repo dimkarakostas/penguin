@@ -38,14 +38,14 @@ class Node:
     def send_hello(self, peer_id):
         print('[*] Sending hello to', peer_id)
 
-        hello_msg = {
+        msg = {
             "type": "hello",
             "version": config.node.VERSION,
             "agent": config.node.AGENT
         }
 
         peer = self.server.peers[peer_id]
-        peer.send(hello_msg)
+        peer.send(msg)
         peer.hello_send = True
 
     def log_peers(self):
