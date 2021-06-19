@@ -32,7 +32,7 @@ class Peer:
 
     def send(self, data):
         try:
-            self.connection.sendall(canonicalize(data))
+            self.connection.sendall(canonicalize(data) + b'\n')
         except Exception as e:
             print('[!] Error in peer.send', e)
             self.close()
