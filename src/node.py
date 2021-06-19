@@ -1,4 +1,5 @@
 import json
+import socket
 import re
 import threading
 from time import sleep
@@ -17,16 +18,22 @@ class Node:
         t = threading.Thread(target=self.log_peers)
         t.start()
 
-    def connect_to_peer(self, host, port):
+    def connect_to_peer(self, hostname, port):
+        host = socket.gethostbyname(hostname)
+        if (host, port) in self.server.peers.keys() or len(self.server.peers.keys()) == 5:
+            print('[!] Peer already connected', host, port)
+            return
+
         peer_id = (host, port)
         print('[*] Connecting to peer', peer_id)
-        self.server.connect(host, port)
-        self.send_hello(peer_id)
+        if self.server.connect(host, port):
+            sleep(0.3)
+            self.send_hello(peer_id)
 
-        peer = self.server.peers[peer_id]
-        while not (peer.hello_recv and peer.hello_send):
-            sleep(3)
-        self.get_peers(peer_id)
+            peer = self.server.peers[peer_id]
+            while not (peer.hello_recv and peer.hello_send):
+                sleep(3)
+            self.get_peers(peer_id)
 
     def send_hello(self, peer_id):
         print('[*] Sending hello to', peer_id)
@@ -98,4 +105,6 @@ class Node:
         elif msg['type'] == 'peers':
             print('[*] Received peers message from', peer.id)
             peer_list = msg['peers']
-            print('[*] Peer list of', peer.id, ':', peer_list)
+            for peer in peer_list:
+                (host, port) = peer.split(':')
+                self.connect_to_peer(host, int(port))

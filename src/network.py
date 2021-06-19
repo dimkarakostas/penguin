@@ -9,15 +9,13 @@ class Peer:
         self.connection = connection
         self.id = id
 
-        print('[*] Client established:', id)
-        self.closed = False
-
-        self.hello_send, self.hello_recv = False, False
-
         self.buffer = queue.Queue()
-
         t = threading.Thread(target=self.listen)
         t.start()
+
+        print('[*] Connection established:', id)
+        self.closed = False
+        self.hello_send, self.hello_recv = False, False
 
     def listen(self):
         try:
@@ -66,5 +64,15 @@ class Server:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
         peer_id = (peer_host, peer_port)
-        sock.connect(peer_id)
-        self.peers[peer_id] = Peer(sock, peer_id)
+        try:
+            sock.settimeout(10)
+            sock.connect(peer_id)
+            sock.settimeout(None)
+            self.peers[peer_id] = Peer(sock, peer_id)
+            return True
+        except socket.timeout:
+            print('[!] Connection timed out', peer_host, peer_port)
+            return False
+        except ConnectionRefusedError:
+            print('[!] Connection refused', peer_host, peer_port)
+            return False
