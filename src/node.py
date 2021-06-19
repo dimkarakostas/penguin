@@ -87,7 +87,7 @@ class Node:
     def parse_msg(self, msg, peer):
         if not peer.hello_recv:
             assert msg['type'] == 'hello', '"type" not "hello"'
-            assert re.match('0\.2\.\d+', msg['version']), 'Wrong hello version'
+            assert re.match(config.node.VERSION_REGEX, msg['version']), 'Wrong hello version'
 
             peer.hello_recv = True
             if not peer.hello_send:
