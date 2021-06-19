@@ -79,3 +79,5 @@ class Node:
             if not peer.hello_send:
                 self.send_hello(peer.id)
             print('[*] Received hello from', peer.id)
+        elif msg['type'] == 'getpeers':
+            print('[*] Received getpeers from', peer.id)
