@@ -95,6 +95,6 @@ class Node:
         elif msg['type'] == 'getpeers':
             print('[*] Received getpeers from', peer.id)
         elif msg['type'] == 'peers':
-            print('[*] Received peers message from' peer.id)
+            print('[*] Received peers message from', peer.id)
             peer_list = msg['peers']
             print('[*] Peer list of', peer.id, ':', peer_list)
