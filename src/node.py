@@ -48,6 +48,16 @@ class Node:
         peer.send(msg)
         peer.hello_send = True
 
+    def send_peers(self, peer_id):
+        print('[*] Sending peers to', peer_id)
+
+        msg = {
+            'type': 'peers'
+        }
+        msg['peers'] = [':'.join([i[0], str(i[1])]) for i in self.server.peers.keys()]
+
+        self.server.peers[peer_id].send(msg)
+
     def log_peers(self):
         while True:
             open('peers.json', 'w').write(
@@ -102,6 +112,7 @@ class Node:
             print('[*] Received hello from', peer.id)
         elif msg['type'] == 'getpeers':
             print('[*] Received getpeers from', peer.id)
+            self.send_peers(peer.id)
         elif msg['type'] == 'peers':
             print('[*] Received peers message from', peer.id)
             peer_list = msg['peers']
