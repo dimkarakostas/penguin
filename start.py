@@ -5,8 +5,9 @@ from src import node
 try:
     with open('peers.json') as f:
         peer_list = json.loads(f.read())['peers']
+    assert peer_list, 'Empty peer list'
     print('[*] Using existing peer list')
-except FileNotFoundError as e:
+except (FileNotFoundError, AssertionError):
     peer_list = [[config.network.PEER_HOST, config.network.PEER_PORT]]
     print('[*] Using hardcoded peers')
 
