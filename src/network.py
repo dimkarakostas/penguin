@@ -2,6 +2,7 @@ import socket
 import json
 import threading
 import queue
+from time import sleep
 from library.Canonicalize import canonicalize
 
 class Peer:
@@ -59,13 +60,24 @@ class Server:
 
         self.peers = {}
 
-        t = threading.Thread(target=self.listen)
-        t.start()
+        t1 = threading.Thread(target=self.listen)
+        t1.start()
+
+        t2 = threading.Thread(target=self.prune_peers)
+        t2.start()
 
     def listen(self):
         while True:
             connection, (client_host, client_port) = self.sock.accept()
             self.peers[(client_host, client_port)] = Peer(connection, (client_host, client_port))
+
+    def prune_peers(self):
+        while True:
+            for (_, peer) in list(self.peers.items()):
+                if peer.closed:
+                    print('[*] Pruning peer', peer.id)
+                    del self.peers[peer.id]
+            sleep(10)
 
     def connect(self, peer_host, peer_port):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
