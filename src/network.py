@@ -20,7 +20,14 @@ class Peer:
     def listen(self):
         try:
             while True:
-                data = self.connection.recv(4096)
+                try:
+                    data = self.connection.recv(4096)
+                except ConnectionResetError:
+                    print('[!] Connection reset', self.id)
+                    break
+                except OSError as e:
+                    print('[!] Unexpected error in recv', self.id)
+                    break
                 self.buffer.put(data)
                 if data == b'':
                     print('[*] Received closing signal', self.id)
