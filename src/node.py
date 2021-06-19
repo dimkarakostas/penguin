@@ -3,6 +3,7 @@ import re
 import threading
 from time import sleep
 from .network import Server
+import config
 
 
 class Node:
@@ -32,8 +33,8 @@ class Node:
 
         hello_msg = {
             "type": "hello",
-            "version": "0.2.0",
-            "agent": "Marabu-Core Client 0.7"
+            "version": config.node.VERSION,
+            "agent": config.node.AGENT
         }
 
         peer = self.server.peers[peer_id]
