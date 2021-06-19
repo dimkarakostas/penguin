@@ -22,6 +22,11 @@ class Node:
         self.server.connect(host, port)
         self.send_hello(peer_id)
 
+        peer = self.server.peers[peer_id]
+        while not (peer.hello_recv and peer.hello_send):
+            sleep(3)
+        self.get_peers(peer_id)
+
     def send_hello(self, peer_id):
         print('[*] Sending hello to', peer_id)
 
@@ -43,6 +48,14 @@ class Node:
                 )
             )
             sleep(5)
+
+    def get_peers(self, peer_id):
+        print('[*] Requesting peers from', peer_id)
+
+        msg = {
+            'type' : 'getpeers'
+        }
+        self.server.peers[peer_id].send(msg)
 
     def remove_peer(self, peer):
         p = self.server.peers.pop(peer.id)
@@ -81,3 +94,7 @@ class Node:
             print('[*] Received hello from', peer.id)
         elif msg['type'] == 'getpeers':
             print('[*] Received getpeers from', peer.id)
+        elif msg['type'] == 'peers':
+            print('[*] Received peers message from' peer.id)
+            peer_list = msg['peers']
+            print('[*] Peer list of', peer.id, ':', peer_list)
