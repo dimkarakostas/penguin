@@ -27,13 +27,15 @@ class Node:
         peer_id = (host, port)
         print('[*] Connecting to peer', peer_id)
         if self.server.connect(host, port):
-            sleep(0.3)
             self.send_hello(peer_id)
 
             peer = self.server.peers[peer_id]
-            while not (peer.hello_recv and peer.hello_send):
-                sleep(3)
-            self.get_peers(peer_id)
+            for _ in range(5):
+                sleep(2)
+            if not peer.hello_recv:
+                self.remove_peer(peer)
+            else:
+                self.get_peers(peer_id)
 
     def send_hello(self, peer_id):
         print('[*] Sending hello to', peer_id)
@@ -97,7 +99,7 @@ class Node:
                         msg = json.loads(data.decode('utf-8'))
                         self.parse_msg(msg, peer)
                     except Exception as e:
-                        print('[!] Error', e)
+                        print('[!] Message Parsing Error:', e)
                         self.remove_peer(peer)
             sleep(1)
 
