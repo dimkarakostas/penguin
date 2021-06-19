@@ -92,6 +92,6 @@ class Server:
         except socket.timeout:
             print('[!] Connection timed out', peer_host, peer_port)
             return False
-        except ConnectionRefusedError:
-            print('[!] Connection refused', peer_host, peer_port)
+        except (ConnectionRefusedError, OSError) as e:
+            print('[!] Connection refused', e, peer_host, peer_port)
             return False
