@@ -15,7 +15,6 @@ class Peer:
         t.start()
 
         print('[*] Connection established:', id)
-        self.closed = False
         self.hello_send, self.hello_recv = False, False
 
     def listen(self):
@@ -46,7 +45,6 @@ class Peer:
     def close(self):
         print('[*] Closing connection with', self.id)
         self.connection.close()
-        self.closed = True
 
 
 class Server:
@@ -63,21 +61,10 @@ class Server:
         t1 = threading.Thread(target=self.listen)
         t1.start()
 
-        t2 = threading.Thread(target=self.prune_peers)
-        t2.start()
-
     def listen(self):
         while True:
             connection, (client_host, client_port) = self.sock.accept()
             self.peers[(client_host, client_port)] = Peer(connection, (client_host, client_port))
-
-    def prune_peers(self):
-        while True:
-            for (_, peer) in list(self.peers.items()):
-                if peer.closed:
-                    print('[*] Pruning peer', peer.id)
-                    del self.peers[peer.id]
-            sleep(10)
 
     def connect(self, peer_host, peer_port):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -91,7 +78,9 @@ class Server:
             return True
         except socket.timeout:
             print('[!] Connection timed out', peer_host, peer_port)
+            self.peers[peer_id] = None
             return False
         except (ConnectionRefusedError, OSError) as e:
             print('[!] Connection refused', e, peer_host, peer_port)
+            self.peers[peer_id] = None
             return False

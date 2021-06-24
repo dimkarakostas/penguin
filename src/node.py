@@ -20,7 +20,7 @@ class Node:
     def connect_to_peer(self, hostname, port):
         host = socket.gethostbyname(hostname)
         if (host, port) in self.server.peers.keys() or len(self.server.peers.keys()) == 5:
-            print('[!] Peer already connected', host, port)
+            print('[!] Peer already in list', hostname, port)
             return
 
         peer_id = (host, port)
@@ -69,7 +69,10 @@ class Node:
                     {'peers': list(self.server.peers.keys())}
                 )
             )
-            sleep(5)
+            sleep(60)
+            for peer_id in self.server.peers.keys():
+                if self.server.peers[peer_id]:
+                    self.get_peers(peer_id)
 
     def get_peers(self, peer_id):
         print('[*] Requesting peers from', peer_id)
@@ -80,29 +83,21 @@ class Node:
         self.server.peers[peer_id].send(msg)
 
     def remove_peer(self, peer):
-        p = self.server.peers.pop(peer.id)
-        if not p.closed:
-            p.close()
+        self.server.peers[peer.id] = None
 
     def read_buffer(self):
         while True:
             for (_, peer) in list(self.server.peers.items()):
-                if peer.closed:
-                    self.remove_peer(peer)
+                if peer is None:
                     continue
-                print('[*] Checking buffer', peer.id)
                 while not peer.buffer.empty():
                     data = peer.buffer.get()
 
                     if data == b'':
                         self.remove_peer(peer)
                         break
-                    try:
-                        msg = json.loads(data.decode('utf-8'))
-                        self.parse_msg(msg, peer)
-                    except Exception as e:
-                        print('[!] Message Parsing Error:', e)
-                        self.remove_peer(peer)
+                    msg = json.loads(data.decode('utf-8'))
+                    self.parse_msg(msg, peer)
             sleep(1)
 
     def parse_msg(self, msg, peer):
@@ -122,4 +117,7 @@ class Node:
             peer_list = msg['peers']
             for peer in peer_list:
                 (host, port) = peer.split(':')
-                self.connect_to_peer(host, int(port))
+                try:
+                    self.connect_to_peer(host, int(port))
+                except (AttributeError, ValueError):
+                    print('[!] Host is malformed', host, port)
