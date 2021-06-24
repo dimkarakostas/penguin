@@ -4,11 +4,14 @@ import re
 import threading
 from time import sleep
 from .network import Server
+from .database import PenguinDB
 import config
 
 
 class Node:
-    def __init__(self, host, port):
+    def __init__(self, host, port, db_path):
+        self.db = PenguinDB(db_path)
+
         self.server_host, self.server_port = host, port
         self.server = Server(host, port)
 
@@ -16,6 +19,13 @@ class Node:
         t1.start()
         t2 = threading.Thread(target=self.log_peers)
         t2.start()
+
+        if not self.db.get('peers'):
+            print('[*] Using hardcoded peers')
+            self.db.set('peers', [[config.network.PEER_HOST, config.network.PEER_PORT]])
+
+        for (peer_host, peer_port) in self.db.get('peers'):
+            self.connect_to_peer(peer_host, peer_port)
 
     def connect_to_peer(self, hostname, port):
         host = socket.gethostbyname(hostname)
@@ -64,11 +74,7 @@ class Node:
 
     def log_peers(self):
         while True:
-            open('peers.json', 'w').write(
-                json.dumps(
-                    {'peers': list(self.server.peers.keys())}
-                )
-            )
+            self.db.set('peers', list(self.server.peers.keys()))
             sleep(60)
             for peer_id in self.server.peers.keys():
                 if self.server.peers[peer_id]:
