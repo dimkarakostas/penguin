@@ -6,9 +6,12 @@ from time import sleep
 from .network import Server
 from .database import PenguinDB
 import config
+import logging
 
 
 class Node:
+    log = logging.getLogger('Node')
+
     def __init__(self, host, port, db_path):
         self.db = PenguinDB(db_path)
 
@@ -20,21 +23,22 @@ class Node:
         t2 = threading.Thread(target=self.log_peers)
         t2.start()
 
-        if not self.db.get('peers'):
-            print('[*] Using hardcoded peers')
+        if self.db.get('peers') == []:
+            self.log.info('Using hardcoded peers')
             self.db.set('peers', [[config.network.PEER_HOST, config.network.PEER_PORT]])
 
-        for (peer_host, peer_port) in self.db.get('peers'):
-            self.connect_to_peer(peer_host, peer_port)
+        for [peer_host, peer_port] in self.db.get('peers'):
+            t = threading.Thread(target=self.connect_to_peer, args=(peer_host, peer_port))
+            t.start()
 
     def connect_to_peer(self, hostname, port):
         host = socket.gethostbyname(hostname)
         if (host, port) in self.server.peers.keys() or len(self.server.peers.keys()) == 5:
-            print('[!] Peer already in list', hostname, port)
+            self.log.error('Peer %s already in list' % str((hostname, port)))
             return
 
-        peer_id = (host, port)
-        print('[*] Connecting to peer', peer_id)
+        peer_id = ':'.join([host, str(port)])
+        self.log.info('Connecting to peer %s' % peer_id)
         if self.server.connect(host, port):
             self.send_hello(peer_id)
 
@@ -44,13 +48,13 @@ class Node:
                 for _ in range(5):
                     sleep(2)
             if not peer.hello_recv:
-                print('[!] Did not receive hello back', peer_id)
+                self.log.error('Did not receive hello back %s' % peer_id)
                 self.remove_peer(peer)
             else:
                 self.get_peers(peer_id)
 
     def send_hello(self, peer_id):
-        print('[*] Sending hello to', peer_id)
+        self.log.info('Sending hello to %s' % peer_id)
 
         msg = {
             'type': 'hello',
@@ -63,7 +67,7 @@ class Node:
         peer.hello_send = True
 
     def send_peers(self, peer_id):
-        print('[*] Sending peers to', peer_id)
+        self.log.info('Sending peers to %s' % peer_id)
 
         msg = {
             'type': 'peers'
@@ -74,14 +78,14 @@ class Node:
 
     def log_peers(self):
         while True:
-            self.db.set('peers', list(self.server.peers.keys()))
             sleep(60)
+            self.db.set('peers', list(self.server.peers.keys()))
             for peer_id in self.server.peers.keys():
                 if self.server.peers[peer_id]:
                     self.get_peers(peer_id)
 
     def get_peers(self, peer_id):
-        print('[*] Requesting peers from', peer_id)
+        self.log.info('Requesting peers from %s' % peer_id)
 
         msg = {
             'type' : 'getpeers'
@@ -118,18 +122,18 @@ class Node:
             peer.hello_recv = True
             if not peer.hello_send:
                 self.send_hello(peer.id)
-            print('[*] Received hello from', peer.id)
+            self.log.info('Received hello from %s' % peer.id)
         elif msg['type'] == 'getpeers':
-            print('[*] Received getpeers from', peer.id)
+            self.log.info('Received getpeers from %s' % peer.id)
             self.send_peers(peer.id)
         elif msg['type'] == 'peers':
-            print('[*] Received peers message from', peer.id)
+            self.log.info('Received peers message from %s' % peer.id)
             peer_list = msg['peers']
             for peer in peer_list:
                 (host, port) = peer.split(':')
                 try:
                     self.connect_to_peer(host, int(port))
                 except (AttributeError, ValueError):
-                    print('[!] Host is malformed', host, port)
+                    self.log.error('Host is malformed %s' % ((host, port)))
         else:
-            print('[!] Message type unknown', msg['type'])
+            self.log.error('Message type unknown %s' % str(msg['type']))

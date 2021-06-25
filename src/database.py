@@ -1,12 +1,15 @@
 import json
+import logging
 
 class PenguinDB:
+    log = logging.getLogger('DB')
+
     def __init__(self, location):
         self.location = location
         try:
             self.db = json.loads(open(location).read())
         except FileNotFoundError:
-            self.db = {}
+            self.db = {'peers': []}
             self.dumpdb()
 
     def dumpdb(self):
@@ -21,7 +24,7 @@ class PenguinDB:
         try:
             return self.db[str(key)]
         except KeyError:
-            print('[!] No key found in db', str(key))
+            self.log.error('No key %s found in db' % str(key))
             return False
 
     def delete(self, key):
