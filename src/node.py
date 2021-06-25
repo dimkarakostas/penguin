@@ -131,3 +131,5 @@ class Node:
                     self.connect_to_peer(host, int(port))
                 except (AttributeError, ValueError):
                     print('[!] Host is malformed', host, port)
+        else:
+            print('[!] Message type unknown', msg['type'])
