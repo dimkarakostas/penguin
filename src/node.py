@@ -74,6 +74,12 @@ class Node:
         msg = {'type': 'getpeers'}
         self.server.peers[peer_id].say(msg)
 
+    def get_mempool(self, peer_id):
+        self.log.info('Requesting mempool from %s' % peer_id)
+
+        msg = {'type': 'getmempool'}
+        self.server.peers[peer_id].say(msg)
+
     def broadcast_object(self, obj_id):
         self.log.info('Broadcasting message: %s', obj_id)
 
@@ -140,6 +146,7 @@ class Node:
             self.db.set('peers', self.connected_peers)
             self.get_peers(peer.id)
             self.request_object(peer.id, config.blockchain.GENESIS_ID)
+            self.get_mempool(peer.id)
         elif msg['type'] == 'getpeers':
             self.log.info('Received getpeers from %s' % peer.id)
             self.send_peers(peer.id)
@@ -162,5 +169,9 @@ class Node:
             obj = self.db.get(obj_id)
             if obj:
                 self.send_object(peer.id, obj)
+        elif msg['type'] == 'mempool':
+            self.log.info('Got mempool of %s: %s' % (peer.id, str(msg['txids'])))
+            for tx_id in msg['txids']:
+                self.request_object(peer.id, tx_id)
         else:
             self.log.error('Message type unknown %s' % str(msg['type']))
