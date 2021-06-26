@@ -36,15 +36,11 @@ class Node:
 
     def connect_to_peer(self, peer_id):
         (hostname, port) = peer_id.split(':')
-        try:
-            host = socket.gethostbyname(hostname)
-        except socket.gaierror:
-            self.log.error('Malformed hostname %s' % hostname)
-            return
+        host = socket.gethostbyname(hostname)
         peer_id = ':'.join([host, port])
 
         if peer_id in self.server.peers.keys() or len(self.server.peers.keys()) == 5:
-            self.log.error('Peer %s already in list' % peer_id)
+            self.log.debug('Peer %s already in list' % peer_id)
             return
 
         self.log.info('Connecting to peer %s' % peer_id)
@@ -148,13 +144,13 @@ class Node:
             self.log.info('Received getpeers from %s' % peer.id)
             self.send_peers(peer.id)
         elif msg['type'] == 'peers':
-            self.log.info('Received peers message from %s' % peer.id)
+            self.log.info('Received peers from %s' % peer.id)
             peer_list = msg['peers']
             for peer in peer_list:
                 try:
                     self.connect_to_peer(peer)
-                except (AttributeError, ValueError):
-                    self.log.error('Host is malformed %s' % peer)
+                except (AttributeError, ValueError, socket.gaierror):
+                    self.log.debug('Peer is malformed %s' % peer)
         elif msg['type'] == 'ihaveobject':
             obj_id = msg['objectid']
             self.log.info('Peer %s has object with id %s' % (peer.id, obj_id))

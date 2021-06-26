@@ -27,7 +27,7 @@ class Client(asyncore.dispatcher):
         try:
             self.connect(host_address)
         except OSError:
-            self.log.error('OSError in Connection')
+            self.log.debug('OSError in Connection')
             return
 
     def is_live(self):
@@ -54,11 +54,11 @@ class Client(asyncore.dispatcher):
             else:
                 self.buffer.put(message)
         except BlockingIOError:
-            self.log.error('IO Error')
+            self.log.debug('IO Error')
             self.close()
             self.hello_send = False
         except OSError:
-            self.log.error('OS Error')
+            self.log.debug('OS Error')
             self.close()
             self.hello_send = False
 
@@ -82,10 +82,10 @@ class RemoteClient(asyncore.dispatcher):
             message = self.recv(MAX_MESSAGE_LENGTH)
             self.buffer.put(message)
         except BlockingIOError:
-            self.log.error('IO Error')
+            self.log.debug('IO Error')
             self.close()
         except OSError:
-            self.log.error('OS Error')
+            self.log.debug('OS Error')
             self.close()
 
     def handle_write(self):
