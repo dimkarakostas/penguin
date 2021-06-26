@@ -6,10 +6,9 @@ import threading
 from time import sleep
 from .network import Server
 from .database import PenguinDB
+from .blockchain import parse_object
 import config
 import logging
-from hashlib import sha256
-from library.Canonicalize import canonicalize
 
 
 class Node:
@@ -171,12 +170,7 @@ class Node:
             self.log.info('Peer %s has object with id %s' % (peer.id, obj_id))
             self.request_object(peer.id, obj_id)
         elif msg['type'] == 'object':
-            obj = msg['object']
-            obj_id = sha256(canonicalize(obj)).hexdigest()
-            self.log.info('Peer %s has object %s with id %s' % (peer.id, obj, obj_id))
-            if not self.db.get(obj_id):
-                self.db.set(obj_id, obj)
-                self.broadcast_object(obj_id)
+            parse_object(msg['object'], self, peer.id)
         elif msg['type'] == 'getobject':
             obj_id = msg['objectid']
             obj = self.db.get(obj_id)
