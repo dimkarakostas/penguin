@@ -1,4 +1,5 @@
 import json
+import asyncore
 import socket
 import re
 import threading
@@ -27,31 +28,29 @@ class Node:
             self.log.info('Using hardcoded peers')
             self.db.set('peers', [[config.network.PEER_HOST, config.network.PEER_PORT]])
 
-        for [peer_host, peer_port] in self.db.get('peers'):
-            t = threading.Thread(target=self.connect_to_peer, args=(peer_host, peer_port))
-            t.start()
+        for peer_id in self.db.get('peers'):
+            self.connect_to_peer(peer_id)
 
-    def connect_to_peer(self, hostname, port):
-        host = socket.gethostbyname(hostname)
-        if (host, port) in self.server.peers.keys() or len(self.server.peers.keys()) == 5:
-            self.log.error('Peer %s already in list' % str((hostname, port)))
+        self.connected_peers = []
+
+        asyncore.loop()
+
+    def connect_to_peer(self, peer_id):
+        (hostname, port) = peer_id.split(':')
+        try:
+            host = socket.gethostbyname(hostname)
+        except socket.gaierror:
+            self.log.error('Malformed hostname %s' % hostname)
+            return
+        peer_id = ':'.join([host, port])
+
+        if peer_id in self.server.peers.keys() or len(self.server.peers.keys()) == 5:
+            self.log.error('Peer %s already in list' % peer_id)
             return
 
-        peer_id = ':'.join([host, str(port)])
         self.log.info('Connecting to peer %s' % peer_id)
-        if self.server.connect(host, port):
+        if self.server.connect_to_peer(peer_id):
             self.send_hello(peer_id)
-
-            peer = self.server.peers[peer_id]
-
-            if not peer.hello_recv:
-                for _ in range(5):
-                    sleep(2)
-            if not peer.hello_recv:
-                self.log.error('Did not receive hello back %s' % peer_id)
-                self.remove_peer(peer)
-            else:
-                self.get_peers(peer_id)
 
     def send_hello(self, peer_id):
         self.log.info('Sending hello to %s' % peer_id)
@@ -63,18 +62,16 @@ class Node:
         }
 
         peer = self.server.peers[peer_id]
-        peer.send(msg)
+        peer.say(msg)
         peer.hello_send = True
 
     def send_peers(self, peer_id):
         self.log.info('Sending peers to %s' % peer_id)
 
-        msg = {
-            'type': 'peers'
-        }
-        msg['peers'] = [':'.join([i[0], str(i[1])]) for i in self.server.peers.keys()]
+        msg = {'type': 'peers'}
+        msg['peers'] = list(self.server.peers.keys())
 
-        self.server.peers[peer_id].send(msg)
+        self.server.peers[peer_id].say(msg)
 
     def log_peers(self):
         while True:
@@ -87,10 +84,8 @@ class Node:
     def get_peers(self, peer_id):
         self.log.info('Requesting peers from %s' % peer_id)
 
-        msg = {
-            'type' : 'getpeers'
-        }
-        self.server.peers[peer_id].send(msg)
+        msg = {'type': 'getpeers'}
+        self.server.peers[peer_id].say(msg)
 
     def remove_peer(self, peer):
         self.server.peers[peer.id] = None
@@ -106,8 +101,11 @@ class Node:
                     if data == b'':
                         self.remove_peer(peer)
                         break
-                    msg = json.loads(data.decode('utf-8'))
-                    self.parse_msg(msg, peer)
+                    try:
+                        msg = json.loads(data.decode('utf-8'))
+                        self.parse_msg(msg, peer)
+                    except json.decoder.JSONDecodeError:
+                        self.log.error('Error decoding json data from peer %s: %s' % (peer.id, data))
             sleep(1)
 
     def parse_msg(self, msg, peer):
@@ -120,9 +118,13 @@ class Node:
                 return
 
             peer.hello_recv = True
+            self.log.info('Received hello from %s' % peer.id)
             if not peer.hello_send:
                 self.send_hello(peer.id)
-            self.log.info('Received hello from %s' % peer.id)
+            else:
+                self.connected_peers.append(peer.id)
+                self.db.set('peers', self.connected_peers)
+                self.get_peers(peer.id)
         elif msg['type'] == 'getpeers':
             self.log.info('Received getpeers from %s' % peer.id)
             self.send_peers(peer.id)
@@ -130,10 +132,9 @@ class Node:
             self.log.info('Received peers message from %s' % peer.id)
             peer_list = msg['peers']
             for peer in peer_list:
-                (host, port) = peer.split(':')
                 try:
-                    self.connect_to_peer(host, int(port))
+                    self.connect_to_peer(peer)
                 except (AttributeError, ValueError):
-                    self.log.error('Host is malformed %s' % ((host, port)))
+                    self.log.error('Host is malformed %s' % peer)
         else:
             self.log.error('Message type unknown %s' % str(msg['type']))

@@ -1,91 +1,135 @@
-import socket
-import json
-import threading
-import queue
-from time import sleep
-from library.Canonicalize import canonicalize
+import asyncore
+import collections
 import logging
+import socket
+import queue
+from library.Canonicalize import canonicalize
 
-class Peer:
-    def __init__(self, connection, id):
-        self.connection = connection
+
+MAX_MESSAGE_LENGTH = 4096
+
+
+class Client(asyncore.dispatcher):
+
+    def __init__(self, host_address, id):
+        asyncore.dispatcher.__init__(self)
+
         self.id = id
-
-        self.log = logging.getLogger('%s' % self.id)
+        self.log = logging.getLogger('(%s)' % self.id)
 
         self.buffer = queue.Queue()
-        t = threading.Thread(target=self.listen)
-        t.start()
-
-        self.log.info('Connection established')
         self.hello_send, self.hello_recv = False, False
 
-    def listen(self):
+        self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.outbox = collections.deque()
+
+        self.log.info('Connecting to peer')
         try:
-            while True:
-                try:
-                    data = self.connection.recv(4096)
-                except ConnectionResetError:
-                    self.log.error('Connection reset')
-                    break
-                except OSError as e:
-                    self.log.error('Unexpected error in recv')
-                    break
-                self.buffer.put(data)
-                if data == b'':
-                    self.log.info('Received closing signal')
-                    break
-        finally:
+            self.connect(host_address)
+        except OSError:
+            self.log.error('OSError in Connection')
+            return
+
+    def say(self, message):
+        self.log.info('Sending %s' % message)
+        self.outbox.append(canonicalize(message) + b'\n')
+
+    def handle_write(self):
+        if not self.outbox:
+            return
+        message = self.outbox.popleft()
+        if len(message) > MAX_MESSAGE_LENGTH:
+            raise ValueError('Message too long')
+        self.send(message)
+
+    def handle_read(self):
+        try:
+            message = self.recv(MAX_MESSAGE_LENGTH)
+            if message == b'':
+                self.close()
+            else:
+                # print('--------------------', message, self.id)
+                self.buffer.put(message)
+        except BlockingIOError:
+            self.log.error('IO Error')
+            self.close()
+        except OSError:
+            self.log.error('OS Error')
             self.close()
 
-    def send(self, data):
+
+class RemoteClient(asyncore.dispatcher):
+    def __init__(self, socket, host):
+        asyncore.dispatcher.__init__(self, socket)
+        self.host = host
+
+        self.outbox = collections.deque()
+
+        self.buffer = queue.Queue()
+
+        self.hello_send, self.hello_recv = False, False
+
+    def say(self, message):
+        self.outbox.append(canonicalize(message) + b'\n')
+
+    def handle_read(self):
         try:
-            self.connection.sendall(canonicalize(data) + b'\n')
-        except Exception as e:
-            self.log.error('Error in peer.send: %s' % str(e))
+            message = self.recv(MAX_MESSAGE_LENGTH)
+            self.buffer.put(message)
+        except BlockingIOError:
+            self.log.error('IO Error')
+            self.close()
+        except OSError:
+            self.log.error('OS Error')
             self.close()
 
-    def close(self):
-        self.log.info('Closing connection')
-        self.connection.close()
+    def handle_write(self):
+        if not self.outbox:
+            return
+        message = self.outbox.popleft()
+        if len(message) > MAX_MESSAGE_LENGTH:
+            raise ValueError('Message too long')
+        self.send(message)
+
+
+class Host(asyncore.dispatcher):
+    log = logging.getLogger('Server')
+
+    def __init__(self, host, port, server):
+        asyncore.dispatcher.__init__(self)
+
+        self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.bind((host, port))
+        self.listen(1)
+
+        self.log.info('Server is listening on: %s' % str((host, port)))
+
+        self.server = server
+
+    def handle_accept(self):
+        socket, (host, port) = self.accept()
+        peer_id = ':'.join([host, str(port)])
+        self.server.peers[peer_id] = RemoteClient(socket, self)
+        self.log.info('Accepted peer %s' % str((host, port)))
+
+    def handle_read(self):
+        self.log.info('Received message: %s', self.read())
+
+    def broadcast(self, message):
+        self.log.info('Broadcasting message: %s', message)
+        for (peer_id, peer) in self.server.peers.items():
+            peer.say(message)
 
 
 class Server:
     def __init__(self, host, port):
         self.log = logging.getLogger('Server')
-
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-        self.sock.bind((host, port))
-        self.sock.listen(1)
-
-        self.log.info('[*] Server is listening on: %s' % str((host, port)))
-
         self.peers = {}
+        self.host = Host(host, port, self)
 
-        t1 = threading.Thread(target=self.listen)
-        t1.start()
+        self.log.info('Server set up')
 
-    def listen(self):
-        while True:
-            connection, (client_host, client_port) = self.sock.accept()
-            self.peers[(client_host, client_port)] = Peer(connection, (client_host, client_port))
-
-    def connect(self, peer_host, peer_port):
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-        peer_id = ':'.join([peer_host, str(peer_port)])
-        try:
-            sock.settimeout(10)
-            sock.connect((peer_host, peer_port))
-            sock.settimeout(None)
-            self.peers[peer_id] = Peer(sock, peer_id)
-            return True
-        except socket.timeout:
-            self.log.error('Connection timed out: %s' % str((peer_host, peer_port)))
-            self.peers[peer_id] = None
-            return False
-        except (ConnectionRefusedError, OSError) as e:
-            self.log.error('Connection refused: %s %s' % (e, str(peer_host, peer_port)))
-            self.peers[peer_id] = None
-            return False
+    def connect_to_peer(self, peer_id):
+        (host, port) = peer_id.split(':')
+        self.peers[peer_id] = Client((host, int(port)), peer_id)
+        return True
