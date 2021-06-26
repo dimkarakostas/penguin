@@ -22,8 +22,6 @@ class Node:
 
         t1 = threading.Thread(target=self.read_buffer)
         t1.start()
-        t2 = threading.Thread(target=self.log_peers)
-        t2.start()
 
         if self.db.get('peers') == []:
             self.log.info('Using hardcoded peers')
@@ -73,14 +71,6 @@ class Node:
         msg['peers'] = list(self.server.peers.keys())
 
         self.server.peers[peer_id].say(msg)
-
-    def log_peers(self):
-        while True:
-            sleep(60)
-            self.db.set('peers', list(self.server.peers.keys()))
-            for peer_id in self.server.peers.keys():
-                if self.server.peers[peer_id]:
-                    self.get_peers(peer_id)
 
     def get_peers(self, peer_id):
         self.log.info('Requesting peers from %s' % peer_id)
