@@ -98,6 +98,15 @@ class Node:
         }
         self.server.peers[peer_id].say(msg)
 
+    def send_error(self, peer_id, error_message):
+        self.log.info('Sending error message %s to %s' % (error_message, peer_id))
+
+        msg = {
+            'type': 'error',
+            'error': error_message
+        }
+        self.server.peers[peer_id].say(msg)
+
     def request_object(self, peer_id, obj_id):
         self.log.info('Requesting object with id %s from %s' % (obj_id, peer_id))
 
@@ -173,5 +182,9 @@ class Node:
             self.log.info('Got mempool of %s: %s' % (peer.id, str(msg['txids'])))
             for tx_id in msg['txids']:
                 self.request_object(peer.id, tx_id)
+        elif msg['type'] == 'error':
+            self.log.error('Got error message from %s: %s' % (peer.id, msg['error']))
         else:
-            self.log.error('Message type unknown %s' % str(msg['type']))
+            error_message = 'Unknown message type: %s' % msg['type']
+            self.log.error(error_message)
+            self.send_error(peer.id, error_message)
