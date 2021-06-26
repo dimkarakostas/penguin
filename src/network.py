@@ -48,7 +48,6 @@ class Client(asyncore.dispatcher):
             if message == b'':
                 self.close()
             else:
-                # print('--------------------', message, self.id)
                 self.buffer.put(message)
         except BlockingIOError:
             self.log.error('IO Error')
