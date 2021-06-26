@@ -30,6 +30,9 @@ class Client(asyncore.dispatcher):
             self.log.error('OSError in Connection')
             return
 
+    def is_live(self):
+        return (self.hello_send and self.hello_recv)
+
     def say(self, message):
         self.log.info('Sending %s' % message)
         self.outbox.append(canonicalize(message) + b'\n')
@@ -47,14 +50,17 @@ class Client(asyncore.dispatcher):
             message = self.recv(MAX_MESSAGE_LENGTH)
             if message == b'':
                 self.close()
+                self.hello_send = False
             else:
                 self.buffer.put(message)
         except BlockingIOError:
             self.log.error('IO Error')
             self.close()
+            self.hello_send = False
         except OSError:
             self.log.error('OS Error')
             self.close()
+            self.hello_send = False
 
 
 class RemoteClient(asyncore.dispatcher):
@@ -114,11 +120,6 @@ class Host(asyncore.dispatcher):
     def handle_read(self):
         self.log.info('Received message: %s', self.read())
 
-    def broadcast(self, message):
-        self.log.info('Broadcasting message: %s', message)
-        for (peer_id, peer) in self.server.peers.items():
-            peer.say(message)
-
 
 class Server:
     def __init__(self, host, port):
@@ -132,3 +133,9 @@ class Server:
         (host, port) = peer_id.split(':')
         self.peers[peer_id] = Client((host, int(port)), peer_id)
         return True
+
+    def broadcast(self, message):
+        self.log.info('Broadcasting message: %s', message)
+        for (peer_id, peer) in self.peers.items():
+            if peer.is_live():
+                peer.say(message)
