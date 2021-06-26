@@ -8,6 +8,8 @@ from .network import Server
 from .database import PenguinDB
 import config
 import logging
+from hashlib import sha256
+from library.Canonicalize import canonicalize
 
 
 class Node:
@@ -87,6 +89,33 @@ class Node:
         msg = {'type': 'getpeers'}
         self.server.peers[peer_id].say(msg)
 
+    def broadcast_object(self, obj_id):
+        self.log.info('Broadcasting message: %s', obj_id)
+
+        msg = {
+            'type': 'ihaveobject',
+            'objectid': obj_id
+        }
+        self.server.broadcast(msg)
+
+    def send_object(self, peer_id, obj):
+        self.log.info('Sending message %s to %s' % (str(obj), peer_id))
+
+        msg = {
+            'type': 'object',
+            'object': obj
+        }
+        self.server.peers[peer_id].say(msg)
+
+    def request_object(self, peer_id, obj_id):
+        self.log.info('Requesting object with id %s from %s' % (obj_id, peer_id))
+
+        msg = {
+            'type': 'getobject',
+            'objectid': obj_id
+        }
+        self.server.peers[peer_id].say(msg)
+
     def remove_peer(self, peer):
         self.server.peers[peer.id] = None
 
@@ -125,6 +154,7 @@ class Node:
                 self.connected_peers.append(peer.id)
                 self.db.set('peers', self.connected_peers)
                 self.get_peers(peer.id)
+                self.request_object(peer.id, config.blockchain.GENESIS_ID)
         elif msg['type'] == 'getpeers':
             self.log.info('Received getpeers from %s' % peer.id)
             self.send_peers(peer.id)
@@ -136,5 +166,21 @@ class Node:
                     self.connect_to_peer(peer)
                 except (AttributeError, ValueError):
                     self.log.error('Host is malformed %s' % peer)
+        elif msg['type'] == 'ihaveobject':
+            obj_id = msg['objectid']
+            self.log.info('Peer %s has object with id %s' % (peer.id, obj_id))
+            self.request_object(peer.id, obj_id)
+        elif msg['type'] == 'object':
+            obj = msg['object']
+            obj_id = sha256(canonicalize(obj)).hexdigest()
+            self.log.info('Peer %s has object %s with id %s' % (peer.id, obj, obj_id))
+            if not self.db.get(obj_id):
+                self.db.set(obj_id, obj)
+                self.broadcast_object(obj_id)
+        elif msg['type'] == 'getobject':
+            obj_id = msg['objectid']
+            obj = self.db.get(obj_id)
+            if obj:
+                self.send_object(peer.id, obj)
         else:
             self.log.error('Message type unknown %s' % str(msg['type']))
