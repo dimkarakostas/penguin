@@ -135,11 +135,11 @@ class Node:
             self.log.info('Received hello from %s' % peer.id)
             if not peer.hello_send:
                 self.send_hello(peer.id)
-            else:
-                self.connected_peers.append(peer.id)
-                self.db.set('peers', self.connected_peers)
-                self.get_peers(peer.id)
-                self.request_object(peer.id, config.blockchain.GENESIS_ID)
+
+            self.connected_peers.append(peer.id)
+            self.db.set('peers', self.connected_peers)
+            self.get_peers(peer.id)
+            self.request_object(peer.id, config.blockchain.GENESIS_ID)
         elif msg['type'] == 'getpeers':
             self.log.info('Received getpeers from %s' % peer.id)
             self.send_peers(peer.id)
