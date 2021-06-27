@@ -131,8 +131,11 @@ class Node:
                         self.remove_peer(peer)
                         break
                     try:
-                        msg = json.loads(data.decode('utf-8'))
-                        self.parse_msg(msg, peer)
+                        datalist = data.decode('utf-8').split('\n')
+                        for d in datalist:
+                            if d:
+                                msg = json.loads(d)
+                                self.parse_msg(msg, peer)
                     except json.decoder.JSONDecodeError:
                         self.log.error('Error decoding json data from peer %s: %s' % (peer.id, data))
             sleep(1)
