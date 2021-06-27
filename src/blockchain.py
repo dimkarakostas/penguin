@@ -3,6 +3,7 @@ from hashlib import sha256
 from nacl.signing import SigningKey, VerifyKey
 from nacl.encoding import HexEncoder
 import logging
+import config
 
 
 class UTxO:
@@ -77,8 +78,9 @@ def parse_object(obj_dict, node, peer_id):
             assert False, 'Transaction %s is malformed' % obj_id
     elif obj_dict['type'] == 'block':
         node.log.info('%s sent block %s with id %s' % (peer_id, obj_dict, obj_id))
-
         obj = Block(obj_dict, node)
+        if obj_id == config.blockchain.GENESIS_ID:
+            obj.valid = True
     else:
         assert False, 'Unknown object type with id %s' % obj_id
 
