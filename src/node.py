@@ -9,6 +9,7 @@ from .database import PenguinDB
 from .blockchain import parse_object
 import config
 import logging
+from nacl.signing import SigningKey
 
 
 class Node:
@@ -31,6 +32,9 @@ class Node:
             self.connect_to_peer(peer_id)
 
         self.connected_peers = []
+
+        self.privkey = SigningKey(config.blockchain.ACCOUNT_SEED)
+        self.pubkey = self.privkey.verify_key
 
         asyncore.loop()
 
@@ -175,7 +179,11 @@ class Node:
             self.log.info('Peer %s has object with id %s' % (peer.id, obj_id))
             self.request_object(peer.id, obj_id)
         elif msg['type'] == 'object':
-            parse_object(msg['object'], self, peer.id)
+            try:
+                parse_object(msg['object'], self, peer.id)
+            except AssertionError as error_msg:
+                self.log.error(error_msg)
+                self.send_error(peer.id, error_msg)
         elif msg['type'] == 'getobject':
             obj_id = msg['objectid']
             obj = self.db.get(obj_id)
