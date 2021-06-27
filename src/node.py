@@ -26,7 +26,7 @@ class Node:
 
         if self.db.get('peers') == []:
             self.log.info('Using hardcoded peers')
-            self.db.set('peers', [[config.network.PEER_HOST, config.network.PEER_PORT]])
+            self.db.set('peers', [config.network.PEER_HOST + ':' + str(config.network.PEER_PORT)])
 
         for peer_id in self.db.get('peers'):
             self.connect_to_peer(peer_id)

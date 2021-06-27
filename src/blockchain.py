@@ -85,6 +85,6 @@ def parse_object(obj_dict, node, peer_id):
         assert False, 'Unknown object type with id %s' % obj_id
 
     if obj.valid and not node.db.get(obj_id):
-        node.log.info('Adding object %s to db' % (peer_id, obj_dict, obj_id))
+        node.log.info('Adding object %s to db' % obj_id)
         node.db.set(obj_id, obj_dict)
         node.broadcast_object(obj_id)

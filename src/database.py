@@ -24,7 +24,7 @@ class PenguinDB:
         try:
             return self.db[str(key)]
         except KeyError:
-            self.log.error('No key %s found in db' % str(key))
+            self.log.debug('No key %s found in db' % str(key))
             return False
 
     def delete(self, key):
