@@ -84,6 +84,12 @@ class Node:
         msg = {'type': 'getmempool'}
         self.server.peers[peer_id].say(msg)
 
+    def get_chaintip(self, peer_id):
+        self.log.info('Requesting chaintip from %s' % peer_id)
+
+        msg = {'type': 'getchaintip'}
+        self.server.peers[peer_id].say(msg)
+
     def broadcast_object(self, obj_id):
         self.log.info('Broadcasting message: %s', obj_id)
 
@@ -163,6 +169,7 @@ class Node:
             self.get_peers(peer.id)
             self.request_object(peer.id, config.blockchain.GENESIS_ID)
             self.get_mempool(peer.id)
+            self.get_chaintip(peer.id)
         elif msg['type'] == 'getpeers':
             self.log.info('Received getpeers from %s' % peer.id)
             self.send_peers(peer.id)
@@ -193,6 +200,9 @@ class Node:
             self.log.info('Got mempool of %s: %s' % (peer.id, str(msg['txids'])))
             for tx_id in msg['txids']:
                 self.request_object(peer.id, tx_id)
+        elif msg['type'] == 'chaintip':
+            self.log.info('Got chaintip id %s' % msg['blockid'])
+            self.request_object(peer.id, msg['blockid'])
         elif msg['type'] == 'error':
             self.log.error('Got error message from %s: %s' % (peer.id, msg['error']))
         else:
