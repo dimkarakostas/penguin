@@ -39,7 +39,7 @@ class Transaction:
         self.outputs = obj['outputs']
         for output in self.outputs:
             self.conservation += output['value']
-        assert self.conservation == 0, 'Tx %s does not respect law of conservation' % self.id
+        assert self.conservation <= 0, 'Tx %s does not respect law of conservation' % self.id
 
     def check_inputs(self):
         tx = dict(obj)
