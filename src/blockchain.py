@@ -79,7 +79,7 @@ class Block:
         self.valid = False
 
 
-def parse_object(obj_dict, db, peer_id, coinbase=False):
+def parse_object(obj_dict, node, peer_id, coinbase=False):
     log = logging.getLogger('Parser')
     db = node.db
 
