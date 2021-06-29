@@ -7,6 +7,7 @@ from time import sleep
 from .network import Server
 from .database import PenguinDB
 from .blockchain import parse_object
+from .exceptions import BlockhainError
 import config
 import logging
 from nacl.signing import SigningKey
@@ -152,10 +153,10 @@ class Node:
 
     def parse_msg(self, msg, peer):
         if not peer.hello_recv:
-            try:
-                assert msg['type'] == 'hello', 'type not hello'
-                assert re.match(config.node.VERSION_REGEX, msg['version']), 'Wrong hello version'
-            except AssertionError:
+            if not all([
+                msg['type'] == 'hello',
+                re.match(config.node.VERSION_REGEX, msg['version'])
+            ]):
                 peer.close()
                 return
 
@@ -188,7 +189,7 @@ class Node:
         elif msg['type'] == 'object':
             try:
                 parse_object(msg['object'], self, peer.id)
-            except AssertionError as error_msg:
+            except BlockhainError as error_msg:
                 self.log.error(error_msg)
                 self.send_error(peer.id, error_msg)
         elif msg['type'] == 'getobject':

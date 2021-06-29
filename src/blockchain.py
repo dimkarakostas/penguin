@@ -6,6 +6,7 @@ from nacl import exceptions as nacl_exceptions
 import logging
 import config
 import copy
+from .exceptions import BlockhainError
 
 
 class UTxO:
@@ -18,7 +19,8 @@ class UTxO:
         self.index = outpoint['index']
 
         tx = self.db.get(self.tx_id)
-        assert tx, 'Transaction %s not in db' % self.tx_id
+        if not tx:
+            raise BlockhainError('Transaction %s not in db' % self.tx_id)
 
         self.pubkey = VerifyKey(tx['outputs'][self.index]['pubkey'], encoder=HexEncoder)
         self.value = tx['outputs'][self.index]['value']
@@ -31,11 +33,12 @@ class Transaction:
         self.id = sha256(canonicalize(obj)).hexdigest()
         self.db = db
         if coinbase:
-            assert all([
+            if not all([
                 'inputs' not in obj,
                 len(obj['outputs']) == 1,
                 obj['outputs'][0]['value'] == config.blockchain.COINBASE_VALUE
-            ]), 'Coinbase tx %s is malformed' % self.id
+            ]):
+                raise BlockhainError('Coinbase tx %s is malformed' % self.id)
             self.valid = True
             return
 
@@ -44,7 +47,8 @@ class Transaction:
         self.outputs = obj['outputs']
         for output in self.outputs:
             self.conservation += output['value']
-        assert self.conservation <= 0, 'Tx %s does not respect law of conservation' % self.id
+        if not self.conservation <= 0:
+            raise BlockhainError('Tx %s does not respect law of conservation' % self.id)
 
         self.valid = True
 
@@ -58,14 +62,14 @@ class Transaction:
             sig_bytes = bytes(inp['sig'], 'utf-8')
             try:
                 utxo = UTxO(inp['outpoint'], self.db)
-            except AssertionError:
+            except BlockhainError:
                 self.log.debug('UTxO not found for tx %s' % inp['outpoint']['txid'])
                 self.valid = False
                 return
             try:
                 utxo.pubkey.verify(sig_bytes + bytes(canonicalize(tx).hex(), 'utf-8'), encoder=HexEncoder)
             except nacl_exceptions.BadSignatureError:
-                assert False, 'Invalid signature for tx %s, UTxO index %d' % (self.id, utxo.index)
+                raise BlockhainError('Invalid signature for tx %s, UTxO index %d' % (self.id, utxo.index))
             self.conservation -= utxo.value
 
 
@@ -89,14 +93,14 @@ def parse_object(obj_dict, node, peer_id, coinbase=False):
         try:
             obj = Transaction(obj_dict, db, coinbase)
         except KeyError:
-            assert False, 'Transaction %s is malformed' % obj_id
+            raise BlockhainError('Transaction %s is malformed' % obj_id)
     elif obj_dict['type'] == 'block':
         log.info('%s sent block %s with id %s' % (peer_id, obj_dict, obj_id))
         obj = Block(obj_dict, db)
         if obj_id == config.blockchain.GENESIS_ID:
             obj.valid = True
     else:
-        assert False, 'Unknown object type with id %s' % obj_id
+        raise BlockhainError('Unknown object type with id %s' % obj_id)
 
     if obj.valid and not db.get(obj_id):
         log.info('Adding object %s to db' % obj_id)
