@@ -160,7 +160,7 @@ class Node:
                 return
 
             peer.hello_recv = True
-            self.log.info('Received hello from %s' % peer.id)
+            self.log.info('Received hello %s from %s' % (str(msg), peer.id))
             if not peer.hello_send:
                 self.send_hello(peer.id)
 
